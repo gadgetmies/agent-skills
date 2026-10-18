@@ -46,7 +46,8 @@ itself (worktree per change, user-gated `git merge --no-ff`, cleanup) lives in
   non-interactively — `git reset --soft` to unstage back to a base, then stage and
   `commit -m` each atomic unit in order, or drive the rebase via
   `GIT_SEQUENCE_EDITOR`/`--exec`.
-- **Now run the FULL suite, and it must be green.** This is the one place "all
+- **Now run the FULL suite, and it must be green** (code changes; see
+  Documentation-only changes). This is the one place "all
   green" is mandatory and non-negotiable.
   - **TFE:** the relevant `tests.*` modules for the surface (full desktop discover
     boots a real render server on :47765 — see `docs/dev-environment.md`).
@@ -55,6 +56,17 @@ itself (worktree per change, user-gated `git merge --no-ff`, cleanup) lives in
   '<test cmd>'`). If per-commit is too costly, full-suite-at-tip + relevant-subset-
   per-commit is the accepted fallback — but say which bar you set, because it
   changes how far `git bisect` can be trusted.
+
+## Documentation-only changes: no test runs
+
+If every file in the branch's diff is prose — Markdown docs, `CLAUDE.md`/`AGENTS.md`,
+READMEs, ADRs, OpenSpec artifacts, design notes — skip test runs in both phases,
+including the full suite at the merge boundary. Commit hygiene still applies.
+
+A file is **not** documentation when code, tests, hooks, the build or a probe reads
+it: config, `.claude/` settings and hooks, fixtures, scripts, templates, UI markup
+(QML/HTML), schema or contract files, and docs whose contents a check greps for.
+One such file in the diff makes the whole change a code change — test it as one.
 
 ## Commit hygiene (applies to the cleaned-up commits)
 
@@ -99,6 +111,7 @@ Targeted subsets and parallel runs only work if tests are built for them.
 | Which tests during work | Only those covering the change (module + importers + its e2e) |
 | Risky refactor ahead | `wip:` save-point first, run relevant tests after |
 | Preparing to merge | Squash WIP → atomic commits, then **full suite green** |
+| Diff is prose only (docs, `CLAUDE.md`, ADRs, specs) | No test runs; hygiene still applies |
 | Any commit | explicit paths, read `git diff --staged`, why-in-body |
 | New test | isolated, no shared state, placed in the right pyramid layer |
 
@@ -108,12 +121,13 @@ Targeted subsets and parallel runs only work if tests are built for them.
 |---|---|
 | "I'll just squash the WIP later, one `wip:` on main is fine" | No `wip:` commit ever reaches `main`. Clean up *before* the merge, not after. |
 | "Full suite per commit is thorough" | During work it's waste. Run the relevant subset; full suite only at the boundary. |
-| "Skipping the full suite before merge saves time" | The merge boundary is the one place it's mandatory. No exceptions. |
+| "Skipping the full suite before merge saves time" | For a code change the merge boundary is the one place it's mandatory. No exceptions. |
 | "`git add -A` is faster" | On a shared checkout it steals other agents' untracked WIP. Stage explicit paths. |
 | "Refactor + fix in one commit is cleaner" | It's the #1 bisect killer. Split them. |
 | "This test is fine reusing the shared server/port/tmp" | State leak → breaks parallel + subset runs. Isolate it. |
 | "I'll write only unit tests / only an e2e" | Missing a pyramid layer. Cover the crucial flow e2e *and* keep fast unit feedback. |
-| "The change is trivial, no test run needed before merge" | Trivial changes break suites. Full suite green at the boundary, always. |
+| "The change is trivial, no test run needed before merge" | Trivial code changes break suites. Full suite green at the boundary for anything that is not prose only. |
+| "It's only a config/hook/fixture tweak, so it's documentation" | Anything code, tests, hooks or the build read is code. Test it. |
 
 ## Red flags — you are about to violate this skill
 
@@ -121,6 +135,6 @@ Targeted subsets and parallel runs only work if tests are built for them.
 - `git add -A` / `git add <dir>` staged
 - Committing without reading `git diff --staged`
 - A commit that both refactors and changes behaviour
-- Merging without having run the full suite green
+- Merging a code change without having run the full suite green
 - A new test that touches a shared server, fixed port, or shared tmp/DB
 - Running the whole suite after every tiny edit during Phase 1
