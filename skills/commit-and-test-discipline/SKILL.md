@@ -1,6 +1,6 @@
 ---
 name: commit-and-test-discipline
-description: Use when making any code change in track-feature-extractor or dj-automation — before committing, when choosing which tests to run, when authoring tests, and when preparing a worktree branch for merge. Covers WIP vs clean commits, atomic history, relevant-subset vs full-suite test runs, and state-isolated parallel-safe tests.
+description: Use when making any code change in track-feature-extractor, dj-automation or fomoplayer — before committing, when choosing which tests to run, when authoring tests, and when preparing a worktree branch for merge. Covers WIP vs clean commits, atomic history, relevant-subset vs full-suite test runs, and state-isolated parallel-safe tests.
 user-invocable: true
 ---
 
@@ -16,8 +16,9 @@ ones mid-work (wastes time) or the loose ones at merge (ships junk).
 
 This governs commit/test conduct **inside** the worktree lifecycle. The lifecycle
 itself (worktree per change, user-gated `git merge --no-ff`, cleanup) lives in
-`docs/contributing-workflow.md` (TFE) / that same doc referenced from dj-automation
-`CLAUDE.md`. **REQUIRED BACKGROUND:** read that lifecycle before applying this skill.
+`docs/contributing-workflow.md` (TFE, fomoplayer) / the TFE doc referenced from
+dj-automation `CLAUDE.md`. **REQUIRED BACKGROUND:** read that lifecycle before applying
+this skill. fomoplayer's default branch is `master`; read `main` below as `master` there.
 
 **Violating the letter of these rules is violating the spirit of them.**
 
@@ -37,6 +38,12 @@ itself (worktree per change, user-gated `git merge --no-ff`, cleanup) lives in
     `QT_QPA_PLATFORM=offscreen` (Qt tests). Pick the module(s) covering your change.
   - **dj-automation:** `./run_tests.sh <module> [<module>...]` (never bare `pytest`
     from the repo root — it reports bogus collision errors).
+  - **fomoplayer:** back-end API tests by directory and file —
+    `cd packages/back && NODE_ENV=test npx dotenv -e .env.test -- npx cascade-test
+    ./test/tests/<dir> --regex '<file>'` (needs the pgvector test database from
+    `.env.test`, or override `DATABASE_URL`); front-end unit tests with
+    `CI=true yarn workspace fomoplayer_front test <pattern>`; `.claude/hooks`
+    changes with `python3 -m unittest discover -s .claude/hooks`.
 
 ### Phase 2 — Preparing to merge (the boundary): go strict
 
@@ -52,6 +59,9 @@ itself (worktree per change, user-gated `git merge --no-ff`, cleanup) lives in
   - **TFE:** the relevant `tests.*` modules for the surface (full desktop discover
     boots a real render server on :47765 — see `docs/dev-environment.md`).
   - **dj-automation:** `./run_tests.sh` (all modules).
+  - **fomoplayer:** `yarn test` (all back-end API tests, as CI's `ci:test`), plus
+    `yarn test:browser` when the change touches the UI, and the paired demo tests
+    `CLAUDE.md` requires for UI changes.
 - **For bisectability, prefer green at *each* final commit** (`git rebase --exec
   '<test cmd>'`). If per-commit is too costly, full-suite-at-tip + relevant-subset-
   per-commit is the accepted fallback — but say which bar you set, because it
