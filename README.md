@@ -17,7 +17,7 @@ npx skills add gadgetmies/agent-skills -l
 
 | Skill | What it's for |
 |---|---|
-| [`commit-and-test-discipline`](skills/commit-and-test-discipline/SKILL.md) | Commit & test conduct when making changes in a repo: `wip:` checkpoints and relevant-subset test runs during work; atomic history + full suite green at the merge boundary (none for documentation-only changes); state-isolated, parallel-safe, pyramided tests. |
+| [`commit-and-test-discipline`](skills/commit-and-test-discipline/SKILL.md) | Commit & test conduct when making changes in a repo: `wip:` checkpoints and relevant-subset test runs during work; atomic history + full suite green at the merge boundary (none for documentation-only changes); state-isolated, parallel-safe, pyramided tests; scratch tests for checking the change, committed tests only for end-state behaviour. |
 
 ## Layout
 

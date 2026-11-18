@@ -1,6 +1,6 @@
 ---
 name: commit-and-test-discipline
-description: Use when making any code change in track-feature-extractor, dj-automation or fomoplayer — before committing, when choosing which tests to run, when authoring tests, and when preparing a worktree branch for merge. Covers WIP vs clean commits, atomic history, relevant-subset vs full-suite test runs, and state-isolated parallel-safe tests.
+description: Use when making any code change in track-feature-extractor, dj-automation or fomoplayer — before committing, when choosing which tests to run, when authoring tests, and when preparing a worktree branch for merge. Covers WIP vs clean commits, atomic history, relevant-subset vs full-suite test runs, and state-isolated, parallel-safe tests that check end-state behaviour rather than the change.
 user-invocable: true
 ---
 
@@ -53,6 +53,8 @@ this skill. fomoplayer's default branch is `master`; read `main` below as `maste
   non-interactively — `git reset --soft` to unstage back to a base, then stage and
   `commit -m` each atomic unit in order, or drive the rebase via
   `GIT_SEQUENCE_EDITOR`/`--exec`.
+- **Triage the tests.** Every test the branch adds is either a kept behaviour test
+  in the right pyramid layer (see Scratch tests vs kept tests) or it is deleted.
 - **Now run the FULL suite, and it must be green** (code changes; see
   Documentation-only changes). This is the one place "all
   green" is mandatory and non-negotiable.
@@ -113,6 +115,34 @@ Targeted subsets and parallel runs only work if tests are built for them.
   - **Detailed layer** — edge cases, branches, less-common paths for high coverage;
     run when its area is touched, and before merge.
 
+## Scratch tests vs kept tests
+
+Write every test you need to be sure the change works, but commit only tests that
+check the behaviour the code must have from now on.
+
+- **Scratch tests check the change itself**: the old function is gone, a call no
+  longer happens, the new output equals the old one. Put them in a git-ignored
+  folder inside the worktree but OUTSIDE every test discovery path (e.g.
+  `<worktree>/.scratch-tests/`; add it to `.git/info/exclude` if `.gitignore`
+  doesn't cover it), so they can import the code but the suite never collects
+  them. The isolation rules don't apply to them; they go away with the worktree.
+- **Kept tests check the end state.** Promote a scratch test only when (1) its
+  assertion makes sense to a reader who never saw the old code and (2) it fails
+  when the desired behaviour breaks. Name it after the behaviour, not the change
+  (`test_render_reads_catalog_cues`, not `test_no_longer_reads_nml`).
+- **See a kept test fail first**: break the behaviour, or run it on the base commit.
+- **Absence that must never return is behaviour**: licence (no GPL imports),
+  security, data-safety rules. Keep such a test, worded as the rule plus its reason.
+- **Always kept**: bug-fix regression tests (named for the behaviour they protect)
+  and migration up/down tests (the migration ships and runs on users' data).
+- **Assert what the outside world sees.** Mock at boundaries (network, subprocess,
+  file system, clock, external services) and assert the calls there, including
+  their count and data when those are the contract (one decode per file, one
+  upload per batch, no request when signed out). Don't mock or count calls
+  between the code's own internal parts, and don't call private helpers directly
+  unless they are a deliberately stable seam: a refactor that keeps the behaviour
+  must not break a kept test.
+
 ## Quick reference
 
 | Situation | Do |
@@ -124,6 +154,8 @@ Targeted subsets and parallel runs only work if tests are built for them.
 | Diff is prose only (docs, `CLAUDE.md`, ADRs, specs) | No test runs; hygiene still applies |
 | Any commit | explicit paths, read `git diff --staged`, why-in-body |
 | New test | isolated, no shared state, placed in the right pyramid layer |
+| Test that checks the change (old code gone, old vs new output) | scratch folder, never committed |
+| Preparing to merge, tests added | keep only end-state behaviour tests; delete the rest |
 
 ## Rationalization table — STOP if you think any of these
 
@@ -138,6 +170,8 @@ Targeted subsets and parallel runs only work if tests are built for them.
 | "I'll write only unit tests / only an e2e" | Missing a pyramid layer. Cover the crucial flow e2e *and* keep fast unit feedback. |
 | "The change is trivial, no test run needed before merge" | Trivial code changes break suites. Full suite green at the boundary for anything that is not prose only. |
 | "It's only a config/hook/fixture tweak, so it's documentation" | Anything code, tests, hooks or the build read is code. Test it. |
+| "This test proves my change worked, keep it" | It proves the transition, not the behaviour; after the merge it guards nothing. Scratch it. |
+| "Asserting the internal helper was called twice is thorough" | It pins the implementation; a behaviour-preserving refactor breaks it. Assert at the boundary. |
 
 ## Red flags — you are about to violate this skill
 
@@ -147,4 +181,8 @@ Targeted subsets and parallel runs only work if tests are built for them.
 - A commit that both refactors and changes behaviour
 - Merging a code change without having run the full suite green
 - A new test that touches a shared server, fixed port, or shared tmp/DB
+- A committed test whose name or assertion refers to the old implementation
+  (`no_longer`, `removed`, `legacy`, `old_`)
+- A committed test that mocks the code's own internals, or calls a private helper
+  that is not a deliberately stable seam
 - Running the whole suite after every tiny edit during Phase 1
